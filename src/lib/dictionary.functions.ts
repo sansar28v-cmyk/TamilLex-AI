@@ -37,13 +37,13 @@ const SCHEMA_HINT = `{
   "meaning_tamil": string (concise Tamil definition),
   "meaning_english": string (concise English definition),
   "part_of_speech": string (noun, verb, adjective, etc.),
-  "synonyms": string[] (3-6 items, in same language as the headword),
-  "antonyms": string[] (2-5 items, in same language as the headword),
-  "word_forms": [{"form": string, "description": string}] (e.g. plural, past tense, conjugations),
-  "examples_english": string[] (2 natural English sentences using the word),
-  "examples_tamil": string[] (2 natural Tamil sentences using the word in Tamil script),
-  "etymology": string (1-2 sentences on origin),
-  "similar_words": string[] (4-6 related words in same language)
+  "synonyms": string[] (max 3 items),
+  "antonyms": string[] (max 2 items),
+  "word_forms": [{"form": string, "description": string}] (max 2 items),
+  "examples_english": string[] (1 simple sentence),
+  "examples_tamil": string[] (1 simple sentence),
+  "etymology": string (1 brief sentence),
+  "similar_words": string[] (max 3 items)
 }`;
 
 function cleanAndParseJSON(text: string) {
@@ -75,12 +75,12 @@ function cleanAndParseJSON(text: string) {
 export const lookupWord = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => LookupSchema.parse(d))
   .handler(async ({ data }): Promise<DictionaryEntry> => {
-    let apiKey = data.customApiKey || process.env.OPENROUTER_API_KEY || process.env.LOVABLE_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+    let apiKey = data.customApiKey || process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || process.env.LOVABLE_API_KEY || process.env.OPENAI_API_KEY;
     
     // Fallback to client-side Vite env if available
     if (!apiKey) {
       const viteEnv = (import.meta as any).env;
-      apiKey = viteEnv?.VITE_OPENROUTER_API_KEY || viteEnv?.VITE_LOVABLE_API_KEY || viteEnv?.VITE_GEMINI_API_KEY || viteEnv?.VITE_OPENAI_API_KEY;
+      apiKey = viteEnv?.VITE_GEMINI_API_KEY || viteEnv?.VITE_OPENROUTER_API_KEY || viteEnv?.VITE_LOVABLE_API_KEY || viteEnv?.VITE_OPENAI_API_KEY;
     }
 
     if (!apiKey) {
@@ -165,7 +165,7 @@ export const lookupWord = createServerFn({ method: "POST" })
       
       res = successResponse;
     } else if (isGemini) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
       res = await fetch(url, {
         method: "POST",
         headers: {
@@ -196,7 +196,7 @@ export const lookupWord = createServerFn({ method: "POST" })
       });
     } else {
       let url = "https://ai.gateway.lovable.dev/v1/chat/completions";
-      let model = "google/gemini-2.5-flash";
+      let model = "google/gemini-2.0-flash";
 
       if (isOpenAI) {
         url = "https://api.openai.com/v1/chat/completions";
