@@ -89,37 +89,26 @@ export const lookupWord = createServerFn({ method: "POST" })
 
     console.log("[DEBUG] Using API Key starting with:", apiKey.substring(0, 12) + "...");
 
+    let res: Response | null = null;
     let isGemini = false;
     let isOpenRouter = false;
     let isOpenAI = false;
 
-    if (apiKey.startsWith("sk-or-")) {
-      isOpenRouter = true;
-    } else if (apiKey.startsWith("sk-")) {
-      isOpenAI = true;
-    } else if (apiKey.startsWith("AIza") || apiKey.startsWith("AQ.")) {
-      isGemini = true;
-    }
+    if (apiKey.startsWith("sk-or-")) isOpenRouter = true;
+    else if (apiKey.startsWith("sk-")) isOpenAI = true;
+    else if (apiKey.startsWith("AIza") || apiKey.startsWith("AQ.")) isGemini = true;
 
-    let res: Response;
-    if (isOpenRouter) {
+    // Helper to fetch OpenRouter
+    const fetchOpenRouter = async (key: string) => {
       const url = "https://openrouter.ai/api/v1/chat/completions";
-      const models = [
-        "google/gemini-2.0-flash-lite-preview-02-05:free",
-        "openrouter/free"
-      ];
-      
-      let lastError: Error | null = null;
-      let successResponse: Response | null = null;
-      
+      const models = ["google/gemini-2.0-flash-lite-preview-02-05:free", "openrouter/free"];
+      let lastErr: Error | null = null;
       for (const model of models) {
         try {
-          console.log(`[DEBUG] Trying OpenRouter model: ${model}`);
-
-          const currentRes = await fetch(url, {
+          const r = await fetch(url, {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${apiKey}`,
+              Authorization: `Bearer ${key}`,
               "Content-Type": "application/json",
               "HTTP-Referer": "http://localhost:8080",
               "X-Title": "TamilLex AI",
@@ -134,97 +123,81 @@ export const lookupWord = createServerFn({ method: "POST" })
               max_tokens: 1500,
             })
           });
-          
-          if (currentRes.ok) {
-            successResponse = currentRes;
-            console.log(`[DEBUG] Model ${model} succeeded!`);
-            break;
-          } else {
-            const status = currentRes.status;
-            const text = await currentRes.text().catch(() => "");
-            console.warn(`[DEBUG] Model ${model} failed with status ${status}: ${text}`);
-            
-            if (status === 401 || status === 400) {
-              throw new Error(`Lookup failed: ${status} ${text}`);
-            }
-            
-            lastError = new Error(`Model ${model} returned ${status}: ${text}`);
-          }
+          if (r.ok) return r;
+          const status = r.status;
+          const text = await r.text().catch(() => "");
+          if (status === 401 || status === 400) throw new Error(`Lookup failed: ${status} ${text}`);
+          lastErr = new Error(`Model ${model} returned ${status}: ${text}`);
         } catch (e: any) {
-          console.warn(`[DEBUG] Error calling ${model}:`, e);
-          lastError = e;
-          if (e.message && (e.message.includes("401") || e.message.includes("unauthorized"))) {
-            throw e;
-          }
+          lastErr = e;
+          if (e.message && (e.message.includes("401") || e.message.includes("unauthorized"))) throw e;
         }
       }
-      
-      if (!successResponse) {
-        throw lastError || new Error("All OpenRouter models failed");
-      }
-      
-      res = successResponse;
-    } else if (isGemini) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-      res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `Look up the word: "${data.word}"\nReturn JSON only.`,
-                },
-              ],
-            },
-          ],
-          systemInstruction: {
-            parts: [
-              {
-                text: `${SYSTEM}\n\nSchema:\n${SCHEMA_HINT}`,
-              },
+      throw lastErr || new Error("All OpenRouter models failed");
+    };
+
+    try {
+      if (isOpenRouter) {
+        res = await fetchOpenRouter(apiKey);
+      } else if (isGemini) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: `Look up the word: "${data.word}"\nReturn JSON only.` }] }],
+            systemInstruction: { parts: [{ text: `${SYSTEM}\n\nSchema:\n${SCHEMA_HINT}` }] },
+            generationConfig: { responseMimeType: "application/json" },
+          }),
+        });
+        
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          if (res.status === 429) {
+            console.warn("[DEBUG] Gemini Rate Limited (429). Attempting fallback...");
+            const viteEnv = (import.meta as any).env;
+            const orKey = process.env.OPENROUTER_API_KEY || viteEnv?.VITE_OPENROUTER_API_KEY;
+            if (orKey && !data.customApiKey) {
+              console.log("[DEBUG] Falling back to OpenRouter...");
+              res = await fetchOpenRouter(orKey);
+              isGemini = false;
+            } else {
+              throw new Error(`Rate limit reached (429): ${text}`);
+            }
+          } else {
+            throw new Error(`Lookup failed: ${res.status} ${text}`);
+          }
+        }
+      } else {
+        let url = "https://ai.gateway.lovable.dev/v1/chat/completions";
+        let model = "google/gemini-2.0-flash";
+        if (isOpenAI) {
+          url = "https://api.openai.com/v1/chat/completions";
+          model = "gpt-4o-mini";
+        }
+        res = await fetch(url, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: `${SYSTEM}\n\nSchema:\n${SCHEMA_HINT}` },
+              { role: "user", content: `Look up the word: "${data.word}"\nReturn JSON only.` },
             ],
-          },
-          generationConfig: {
-            responseMimeType: "application/json",
-          },
-        }),
-      });
-    } else {
-      let url = "https://ai.gateway.lovable.dev/v1/chat/completions";
-      let model = "google/gemini-2.0-flash";
-
-      if (isOpenAI) {
-        url = "https://api.openai.com/v1/chat/completions";
-        model = "gpt-4o-mini";
+            response_format: { type: "json_object" },
+          }),
+        });
       }
 
-      res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: `${SYSTEM}\n\nSchema:\n${SCHEMA_HINT}` },
-            { role: "user", content: `Look up the word: "${data.word}"\nReturn JSON only.` },
-          ],
-          response_format: { type: "json_object" },
-        }),
-      });
-    }
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      if (res.status === 429) throw new Error(`Rate limit reached (429): ${text}`);
-      if (res.status === 402) throw new Error(`AI credits exhausted (402): ${text}`);
-      throw new Error(`Lookup failed: ${res.status} ${text}`);
+      if (!res || !res.ok) {
+        const text = res ? await res.text().catch(() => "") : "";
+        const status = res ? res.status : 500;
+        if (status === 429) throw new Error(`Rate limit reached (429): ${text}`);
+        if (status === 402) throw new Error(`AI credits exhausted (402): ${text}`);
+        throw new Error(`Lookup failed: ${status} ${text}`);
+      }
+    } catch (err: any) {
+      throw new Error(err.message || String(err));
     }
 
     const json = await res.json();
