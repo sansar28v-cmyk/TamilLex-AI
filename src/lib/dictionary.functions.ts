@@ -25,9 +25,9 @@ export interface DictionaryEntry {
 
 const SYSTEM = `You are TamilLex AI, a precise bilingual Tamil/English dictionary.
 Return ONLY valid JSON matching the schema. Never include markdown fences or commentary.
-If the input word is invalid or not a real word in either language, set all fields to reasonable empty values and "part_of_speech" to "unknown".
+CRITICAL: You MUST provide ACCURATE and REAL Tamil translations (தமிழ்). Do NOT hallucinate or invent fake Tamil words. If you are unsure of the exact Tamil translation, return an empty string.
 Always provide BOTH Tamil and English meanings regardless of input language.
-Tamil text must use proper Tamil script (தமிழ்).`;
+Tamil text MUST use proper Tamil script (தமிழ்) without mixing English letters or other alphabets.`;
 
 const SCHEMA_HINT = `{
   "word": string (the headword, normalized),
@@ -101,7 +101,7 @@ export const lookupWord = createServerFn({ method: "POST" })
     // Helper to fetch OpenRouter
     const fetchOpenRouter = async (key: string) => {
       const url = "https://openrouter.ai/api/v1/chat/completions";
-      const models = ["google/gemini-2.0-flash-lite-preview-02-05:free", "openrouter/free"];
+      const models = ["google/gemini-2.0-flash-lite-preview-02-05:free"];
       let lastErr: Error | null = null;
       for (const model of models) {
         try {
