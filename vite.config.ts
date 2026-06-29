@@ -13,4 +13,9 @@ export default defineConfig({
     server: { entry: "server" },
   },
   nitro: true,
+  vite: {
+    build: {
+      chunkSizeWarningLimit: 1000,
+    },
+  },
 });
