@@ -58,6 +58,12 @@ export const t = {
   copyLink: { ta: "இணைப்பை நகலெடு", en: "Copy link" },
   shortcut: { ta: "‘/’ அழுத்தி தேடல் பெட்டிக்கு செல்", en: "Press '/' to focus search" },
   shareOn: { ta: "இதில் பகிர்", en: "Share on" },
+  customApiKey: { ta: "தனிப்பயன் ஜெமினி API சாவி", en: "Custom Gemini API Key" },
+  customApiKeyDesc: {
+    ta: "மாற்று API சாவி. நீங்கள் கடந்துவிட்ட கணக்கு வரம்புகளைத் தவிர்க்க இது உதவும்.",
+    en: "Custom API key. Useful to bypass credit limits in the deployed app.",
+  },
+  apiKeySaved: { ta: "API சாவி சேமிக்கப்பட்டது!", en: "API key saved!" },
 } as const;
 
 export type Phrase = keyof typeof t;

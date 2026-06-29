@@ -8,6 +8,7 @@ export interface Settings {
   ttsRate: number;
   theme: ThemeMode;
   fontScale: number; // 0.9 .. 1.2
+  apiKey?: string;
 }
 
 const DEFAULTS: Settings = {
@@ -16,6 +17,7 @@ const DEFAULTS: Settings = {
   ttsRate: 0.95,
   theme: "light",
   fontScale: 1,
+  apiKey: "",
 };
 
 const isBrowser = () => typeof window !== "undefined";

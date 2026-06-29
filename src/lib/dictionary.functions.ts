@@ -3,6 +3,7 @@ import { z } from "zod";
 
 const LookupSchema = z.object({
   word: z.string().min(1).max(80),
+  customApiKey: z.string().optional(),
 });
 
 export interface DictionaryEntry {
@@ -48,7 +49,7 @@ const SCHEMA_HINT = `{
 export const lookupWord = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => LookupSchema.parse(d))
   .handler(async ({ data }): Promise<DictionaryEntry> => {
-    let apiKey = process.env.OPENROUTER_API_KEY || process.env.LOVABLE_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+    let apiKey = data.customApiKey || process.env.OPENROUTER_API_KEY || process.env.LOVABLE_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
     
     // Fallback to client-side Vite env if available
     if (!apiKey) {
@@ -60,9 +61,20 @@ export const lookupWord = createServerFn({ method: "POST" })
       throw new Error("AI gateway / API key not configured. Please add OPENROUTER_API_KEY, LOVABLE_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY to your .env file.");
     }
 
-    const isOpenRouter = !!(process.env.OPENROUTER_API_KEY || (import.meta as any).env?.VITE_OPENROUTER_API_KEY);
-    const isGemini = !isOpenRouter && !!(process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY);
-    const isOpenAI = !isOpenRouter && !!(process.env.OPENAI_API_KEY || (import.meta as any).env?.VITE_OPENAI_API_KEY);
+    let isGemini = false;
+    let isOpenRouter = false;
+    let isOpenAI = false;
+    let isLovable = false;
+
+    if (apiKey.startsWith("sk-or-")) {
+      isOpenRouter = true;
+    } else if (apiKey.startsWith("sk-")) {
+      isOpenAI = true;
+    } else if (apiKey.startsWith("AQ.")) {
+      isLovable = true;
+    } else {
+      isGemini = true;
+    }
 
     let res: Response;
     if (isOpenRouter) {
@@ -179,7 +191,8 @@ export const lookupWord = createServerFn({ method: "POST" })
   });
 
 export const wordOfTheDay = createServerFn({ method: "GET" })
-  .handler(async (): Promise<DictionaryEntry> => {
+  .inputValidator((d: unknown) => z.object({ customApiKey: z.string().optional() }).parse(d))
+  .handler(async ({ data }): Promise<DictionaryEntry> => {
     // Deterministic-ish per day, picked client-side from a curated list then enriched.
     const pool = [
       "serendipity", "ephemeral", "luminous", "wanderlust", "petrichor",
@@ -188,5 +201,5 @@ export const wordOfTheDay = createServerFn({ method: "GET" })
     ];
     const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
     const word = pool[day % pool.length];
-    return await lookupWord({ data: { word } });
+    return await lookupWord({ data: { word, customApiKey: data.customApiKey } });
   });

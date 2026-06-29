@@ -79,13 +79,19 @@ function Index() {
 
   const wotd = useQuery({
     queryKey: ["wotd"],
-    queryFn: () => wotdFn(),
+    queryFn: () => {
+      const apiKey = getSettings().apiKey;
+      return wotdFn({ data: { customApiKey: apiKey } });
+    },
     staleTime: 1000 * 60 * 60 * 6,
     retry: 0,
   });
 
   const lookup = useMutation({
-    mutationFn: (word: string) => lookupFn({ data: { word } }),
+    mutationFn: (word: string) => {
+      const apiKey = getSettings().apiKey;
+      return lookupFn({ data: { word, customApiKey: apiKey } });
+    },
     onSuccess: (data, word) => {
       setEntry(data);
       pushRecent(word);
