@@ -46,6 +46,32 @@ const SCHEMA_HINT = `{
   "similar_words": string[] (4-6 related words in same language)
 }`;
 
+function cleanAndParseJSON(text: string) {
+  let cleaned = text.trim();
+  
+  // Remove markdown code blocks if present
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim();
+  }
+  
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    // Attempt to extract JSON substring between the first '{' and the last '}'
+    const startIdx = cleaned.indexOf("{");
+    const endIdx = cleaned.lastIndexOf("}");
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+      const jsonSub = cleaned.substring(startIdx, endIdx + 1);
+      try {
+        return JSON.parse(jsonSub);
+      } catch (innerErr) {
+        console.error("Failed to parse extracted JSON block:", jsonSub, innerErr);
+      }
+    }
+    throw e;
+  }
+}
+
 export const lookupWord = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => LookupSchema.parse(d))
   .handler(async ({ data }): Promise<DictionaryEntry> => {
@@ -208,9 +234,10 @@ export const lookupWord = createServerFn({ method: "POST" })
       : (json.choices?.[0]?.message?.content ?? "{}");
     let parsed: DictionaryEntry;
     try {
-      parsed = JSON.parse(content);
-    } catch {
-      throw new Error("AI returned malformed response");
+      parsed = cleanAndParseJSON(content);
+    } catch (e: any) {
+      console.error("[DEBUG] Failed to parse JSON content:", content);
+      throw new Error(`AI returned malformed response: ${e.message || e}. Raw: ${content.substring(0, 120)}...`);
     }
     // Normalize defaults
     return {
