@@ -61,6 +61,8 @@ export const lookupWord = createServerFn({ method: "POST" })
       throw new Error("AI gateway / API key not configured. Please add OPENROUTER_API_KEY, LOVABLE_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY to your .env file.");
     }
 
+    console.log("[DEBUG] Using API Key starting with:", apiKey.substring(0, 12) + "...");
+
     let isGemini = false;
     let isOpenRouter = false;
     let isOpenAI = false;
