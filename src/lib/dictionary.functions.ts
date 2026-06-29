@@ -64,15 +64,12 @@ export const lookupWord = createServerFn({ method: "POST" })
     let isGemini = false;
     let isOpenRouter = false;
     let isOpenAI = false;
-    let isLovable = false;
 
     if (apiKey.startsWith("sk-or-")) {
       isOpenRouter = true;
     } else if (apiKey.startsWith("sk-")) {
       isOpenAI = true;
-    } else if (apiKey.startsWith("AQ.")) {
-      isLovable = true;
-    } else {
+    } else if (apiKey.startsWith("AIza") || apiKey.startsWith("AQ.")) {
       isGemini = true;
     }
 
