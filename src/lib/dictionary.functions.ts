@@ -101,7 +101,7 @@ export const lookupWord = createServerFn({ method: "POST" })
     // Helper to fetch OpenRouter
     const fetchOpenRouter = async (key: string) => {
       const url = "https://openrouter.ai/api/v1/chat/completions";
-      const models = ["meta-llama/llama-3.3-70b-instruct:free", "google/gemma-2-9b-it:free"];
+      const models = ["google/gemini-2.0-pro-exp-02-05:free", "openrouter/free"];
       let lastErr: Error | null = null;
       for (const model of models) {
         try {
