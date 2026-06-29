@@ -115,8 +115,15 @@ export const lookupWord = createServerFn({ method: "POST" })
       let successResponse: Response | null = null;
       
       for (const model of models) {
+        let timeoutId: any;
         try {
           console.log(`[DEBUG] Trying OpenRouter model: ${model}`);
+          const controller = new AbortController();
+          timeoutId = setTimeout(() => {
+            console.warn(`[DEBUG] Timeout reached for model: ${model}. Aborting...`);
+            controller.abort();
+          }, 4500);
+
           const currentRes = await fetch(url, {
             method: "POST",
             headers: {
@@ -134,7 +141,10 @@ export const lookupWord = createServerFn({ method: "POST" })
               response_format: { type: "json_object" },
               max_tokens: 1500,
             }),
+            signal: controller.signal,
           });
+          
+          clearTimeout(timeoutId);
           
           if (currentRes.ok) {
             successResponse = currentRes;
@@ -152,6 +162,7 @@ export const lookupWord = createServerFn({ method: "POST" })
             lastError = new Error(`Model ${model} returned ${status}: ${text}`);
           }
         } catch (e: any) {
+          if (timeoutId) clearTimeout(timeoutId);
           console.warn(`[DEBUG] Error calling ${model}:`, e);
           lastError = e;
           if (e.message && (e.message.includes("401") || e.message.includes("unauthorized"))) {
