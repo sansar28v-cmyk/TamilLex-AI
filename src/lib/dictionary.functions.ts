@@ -136,36 +136,63 @@ export const lookupWord = createServerFn({ method: "POST" })
       throw lastErr || new Error("All OpenRouter models failed");
     };
 
+    // Helper to fetch Gemini
+    const fetchGemini = async (key: string) => {
+      const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+      let lastErr: Error | null = null;
+      
+      for (const model of models) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+          const r = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: `Look up the word: "${data.word}"\nReturn JSON only.` }] }],
+              systemInstruction: { parts: [{ text: `${SYSTEM}\n\nSchema:\n${SCHEMA_HINT}` }] },
+              generationConfig: { responseMimeType: "application/json" },
+            }),
+          });
+          
+          if (r.ok) return r;
+          
+          const status = r.status;
+          const text = await r.text().catch(() => "");
+          
+          if (status === 429) {
+            console.warn(`[DEBUG] Gemini model ${model} Rate Limited (429).`);
+            lastErr = new Error(`You are searching too fast! Free tier allows 15 searches per minute. Please wait 15 seconds and try again.`);
+            continue; // try next model
+          }
+          
+          throw new Error(`Lookup failed: ${status}`);
+        } catch (e: any) {
+          lastErr = e;
+        }
+      }
+      throw lastErr || new Error("All Gemini models failed");
+    };
+
     try {
       if (isOpenRouter) {
         res = await fetchOpenRouter(apiKey);
       } else if (isGemini) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-        res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: `Look up the word: "${data.word}"\nReturn JSON only.` }] }],
-            systemInstruction: { parts: [{ text: `${SYSTEM}\n\nSchema:\n${SCHEMA_HINT}` }] },
-            generationConfig: { responseMimeType: "application/json" },
-          }),
-        });
-        
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          if (res.status === 429) {
-            console.warn("[DEBUG] Gemini Rate Limited (429). Attempting fallback...");
-            const viteEnv = (import.meta as any).env;
-            const orKey = process.env.OPENROUTER_API_KEY || viteEnv?.VITE_OPENROUTER_API_KEY;
-            if (orKey && !data.customApiKey) {
-              console.log("[DEBUG] Falling back to OpenRouter...");
+        try {
+          res = await fetchGemini(apiKey);
+        } catch (geminiErr: any) {
+          // If Gemini fails (like 429), attempt OpenRouter fallback if key exists
+          const viteEnv = (import.meta as any).env;
+          const orKey = process.env.OPENROUTER_API_KEY || viteEnv?.VITE_OPENROUTER_API_KEY;
+          if (orKey && !data.customApiKey && geminiErr.message.includes("fast")) {
+            console.log("[DEBUG] Gemini rate limited, falling back to OpenRouter...");
+            try {
               res = await fetchOpenRouter(orKey);
-              isGemini = false;
-            } else {
-              throw new Error(`Rate limit reached (429): ${text}`);
+              isGemini = false; // parse as openrouter
+            } catch (orErr) {
+               throw geminiErr; // If fallback fails, throw the original friendly Gemini error
             }
           } else {
-            throw new Error(`Lookup failed: ${res.status} ${text}`);
+            throw geminiErr;
           }
         }
       } else {
@@ -192,9 +219,9 @@ export const lookupWord = createServerFn({ method: "POST" })
       if (!res || !res.ok) {
         const text = res ? await res.text().catch(() => "") : "";
         const status = res ? res.status : 500;
-        if (status === 429) throw new Error(`Rate limit reached (429): ${text}`);
+        if (status === 429) throw new Error(`You are searching too fast! Please wait a few seconds before trying again.`);
         if (status === 402) throw new Error(`AI credits exhausted (402): ${text}`);
-        throw new Error(`Lookup failed: ${status} ${text}`);
+        throw new Error(`Lookup failed: ${status}`);
       }
     } catch (err: any) {
       throw new Error(err.message || String(err));
