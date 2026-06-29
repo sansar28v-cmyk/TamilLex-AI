@@ -78,26 +78,66 @@ export const lookupWord = createServerFn({ method: "POST" })
     let res: Response;
     if (isOpenRouter) {
       const url = "https://openrouter.ai/api/v1/chat/completions";
-      const model = "google/gemini-2.5-flash:free";
+      const models = [
+        "google/gemini-2.5-flash:free",
+        "google/gemma-2-9b-it:free",
+        "meta-llama/llama-3-8b-instruct:free"
+      ];
       
-      res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "http://localhost:8080",
-          "X-Title": "TamilLex AI",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: `${SYSTEM}\n\nSchema:\n${SCHEMA_HINT}` },
-            { role: "user", content: `Look up the word: "${data.word}"\nReturn JSON only.` },
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1500,
-        }),
-      });
+      let lastError: Error | null = null;
+      let successResponse: Response | null = null;
+      
+      for (const model of models) {
+        try {
+          console.log(`[DEBUG] Trying OpenRouter model: ${model}`);
+          const currentRes = await fetch(url, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "http://localhost:8080",
+              "X-Title": "TamilLex AI",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: `${SYSTEM}\n\nSchema:\n${SCHEMA_HINT}` },
+                { role: "user", content: `Look up the word: "${data.word}"\nReturn JSON only.` },
+              ],
+              response_format: { type: "json_object" },
+              max_tokens: 1500,
+            }),
+          });
+          
+          if (currentRes.ok) {
+            successResponse = currentRes;
+            console.log(`[DEBUG] Model ${model} succeeded!`);
+            break;
+          } else {
+            const status = currentRes.status;
+            const text = await currentRes.text().catch(() => "");
+            console.warn(`[DEBUG] Model ${model} failed with status ${status}: ${text}`);
+            
+            if (status === 401 || status === 400) {
+              throw new Error(`Lookup failed: ${status} ${text}`);
+            }
+            
+            lastError = new Error(`Model ${model} returned ${status}: ${text}`);
+          }
+        } catch (e: any) {
+          console.warn(`[DEBUG] Error calling ${model}:`, e);
+          lastError = e;
+          if (e.message && (e.message.includes("401") || e.message.includes("unauthorized"))) {
+            throw e;
+          }
+        }
+      }
+      
+      if (!successResponse) {
+        throw lastError || new Error("All OpenRouter models failed");
+      }
+      
+      res = successResponse;
     } else if (isGemini) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       res = await fetch(url, {
