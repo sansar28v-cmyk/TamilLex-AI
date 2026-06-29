@@ -79,10 +79,10 @@ export const lookupWord = createServerFn({ method: "POST" })
     if (isOpenRouter) {
       const url = "https://openrouter.ai/api/v1/chat/completions";
       const models = [
+        "openrouter/free",
         "google/gemini-2.5-flash:free",
         "meta-llama/llama-3.3-70b-instruct:free",
-        "google/gemma-2-9b-it:free",
-        "qwen/qwen-2.5-72b-instruct:free"
+        "google/gemma-2-9b-it:free"
       ];
       
       let lastError: Error | null = null;
