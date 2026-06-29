@@ -139,7 +139,7 @@ function SettingsPage() {
               <div className="flex gap-2">
                 <input
                   type="password"
-                  placeholder="AQ.Ab8..."
+                  placeholder="AQ.Ab8... or sk-or-..."
                   value={customApiKey}
                   onChange={(e) => setCustomApiKey(e.target.value)}
                   className="w-full rounded-xl border border-sky-100 bg-white/50 px-4 py-2 text-sm text-sky-deep focus:border-sky-500 focus:outline-none dark:border-sky-900/30 dark:bg-slate-900/50"
