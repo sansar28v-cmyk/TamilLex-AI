@@ -96,7 +96,34 @@ export function resetAll() {
   localStorage.removeItem("tl_favorites");
   localStorage.removeItem("tl_recents");
   localStorage.removeItem("tl_settings");
+  localStorage.removeItem("tl_cache");
   window.dispatchEvent(new Event("tl_favorites_changed"));
   window.dispatchEvent(new Event("tl_recents_changed"));
   window.dispatchEvent(new Event("tl_settings_changed"));
+}
+
+export function getDictionaryCache(word: string): any {
+  if (!isBrowser()) return null;
+  try {
+    const cache = JSON.parse(localStorage.getItem("tl_cache") || "{}");
+    return cache[word.toLowerCase()] || null;
+  } catch {
+    return null;
+  }
+}
+
+export function setDictionaryCache(word: string, entry: any) {
+  if (!isBrowser()) return;
+  try {
+    const cache = JSON.parse(localStorage.getItem("tl_cache") || "{}");
+    cache[word.toLowerCase()] = entry;
+    // Limit cache size to 100 to avoid localStorage quota issues
+    const keys = Object.keys(cache);
+    if (keys.length > 100) {
+      delete cache[keys[0]];
+    }
+    localStorage.setItem("tl_cache", JSON.stringify(cache));
+  } catch {
+    // Ignore cache write errors
+  }
 }

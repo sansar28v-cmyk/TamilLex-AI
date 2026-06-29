@@ -10,7 +10,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { DictionaryCard } from "@/components/DictionaryCard";
 import { lookupWord, wordOfTheDay, type DictionaryEntry } from "@/lib/dictionary.functions";
 import {
-  clearRecents, getFavorites, getRecents, getSettings, pushRecent,
+  clearRecents, getFavorites, getRecents, getSettings, pushRecent, getDictionaryCache, setDictionaryCache
 } from "@/lib/dict-store";
 import { tr } from "@/lib/i18n";
 
@@ -95,12 +95,21 @@ function Index() {
     onSuccess: (data, word) => {
       setEntry(data);
       pushRecent(word);
+      setDictionaryCache(word, data);
     },
     onError: (e: any) => toast.error(e?.message || "Lookup failed"),
   });
 
   const submit = (w: string) => {
     setQ(w);
+    const cached = getDictionaryCache(w);
+    if (cached) {
+      setEntry(cached);
+      pushRecent(w);
+      if (typeof window !== "undefined") window.scrollTo({ top: 180, behavior: "smooth" });
+      return;
+    }
+    
     lookup.mutate(w);
     if (typeof window !== "undefined") window.scrollTo({ top: 180, behavior: "smooth" });
   };

@@ -105,9 +105,7 @@ export const lookupWord = createServerFn({ method: "POST" })
     if (isOpenRouter) {
       const url = "https://openrouter.ai/api/v1/chat/completions";
       const models = [
-        "google/gemma-2-9b-it:free",
-        "google/gemini-2.5-flash:free",
-        "meta-llama/llama-3.3-70b-instruct:free",
+        "google/gemini-2.0-flash-lite-preview-02-05:free",
         "openrouter/free"
       ];
       
@@ -115,14 +113,8 @@ export const lookupWord = createServerFn({ method: "POST" })
       let successResponse: Response | null = null;
       
       for (const model of models) {
-        let timeoutId: any;
         try {
           console.log(`[DEBUG] Trying OpenRouter model: ${model}`);
-          const controller = new AbortController();
-          timeoutId = setTimeout(() => {
-            console.warn(`[DEBUG] Timeout reached for model: ${model}. Aborting...`);
-            controller.abort();
-          }, 2500);
 
           const currentRes = await fetch(url, {
             method: "POST",
@@ -140,11 +132,8 @@ export const lookupWord = createServerFn({ method: "POST" })
               ],
               response_format: { type: "json_object" },
               max_tokens: 1500,
-            }),
-            signal: controller.signal,
+            })
           });
-          
-          clearTimeout(timeoutId);
           
           if (currentRes.ok) {
             successResponse = currentRes;
@@ -162,7 +151,6 @@ export const lookupWord = createServerFn({ method: "POST" })
             lastError = new Error(`Model ${model} returned ${status}: ${text}`);
           }
         } catch (e: any) {
-          if (timeoutId) clearTimeout(timeoutId);
           console.warn(`[DEBUG] Error calling ${model}:`, e);
           lastError = e;
           if (e.message && (e.message.includes("401") || e.message.includes("unauthorized"))) {
