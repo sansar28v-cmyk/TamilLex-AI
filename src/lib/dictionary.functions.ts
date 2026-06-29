@@ -78,7 +78,7 @@ export const lookupWord = createServerFn({ method: "POST" })
     let res: Response;
     if (isOpenRouter) {
       const url = "https://openrouter.ai/api/v1/chat/completions";
-      const model = "google/gemini-2.5-flash";
+      const model = "google/gemini-2.5-flash:free";
       
       res = await fetch(url, {
         method: "POST",
