@@ -138,7 +138,7 @@ export const lookupWord = createServerFn({ method: "POST" })
 
     // Helper to fetch Gemini
     const fetchGemini = async (key: string) => {
-      const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+      const models = ["gemini-2.0-flash"];
       let lastErr: Error | null = null;
       
       for (const model of models) {
@@ -161,11 +161,11 @@ export const lookupWord = createServerFn({ method: "POST" })
           
           if (status === 429) {
             console.warn(`[DEBUG] Gemini model ${model} Rate Limited (429).`);
-            lastErr = new Error(`You are searching too fast! Free tier allows 15 searches per minute. Please wait 15 seconds and try again.`);
+            lastErr = new Error(`You are searching too fast! Google's free tier allows 15 searches per minute. Please wait 10 seconds and try again.`);
             continue; // try next model
           }
           
-          throw new Error(`Lookup failed: ${status}`);
+          throw new Error(`Lookup failed: ${status} ${text}`);
         } catch (e: any) {
           lastErr = e;
         }
