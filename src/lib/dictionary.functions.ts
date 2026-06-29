@@ -95,6 +95,7 @@ export const lookupWord = createServerFn({ method: "POST" })
             { role: "user", content: `Look up the word: "${data.word}"\nReturn JSON only.` },
           ],
           response_format: { type: "json_object" },
+          max_tokens: 1500,
         }),
       });
     } else if (isGemini) {
