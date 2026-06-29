@@ -155,8 +155,8 @@ export const lookupWord = createServerFn({ method: "POST" })
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      if (res.status === 429) throw new Error("Rate limit reached. Please wait a moment.");
-      if (res.status === 402) throw new Error("AI credits exhausted. Add credits in Settings → Workspace.");
+      if (res.status === 429) throw new Error(`Rate limit reached (429): ${text}`);
+      if (res.status === 402) throw new Error(`AI credits exhausted (402): ${text}`);
       throw new Error(`Lookup failed: ${res.status} ${text}`);
     }
 
