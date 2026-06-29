@@ -105,10 +105,10 @@ export const lookupWord = createServerFn({ method: "POST" })
     if (isOpenRouter) {
       const url = "https://openrouter.ai/api/v1/chat/completions";
       const models = [
-        "openrouter/free",
+        "google/gemma-2-9b-it:free",
         "google/gemini-2.5-flash:free",
         "meta-llama/llama-3.3-70b-instruct:free",
-        "google/gemma-2-9b-it:free"
+        "openrouter/free"
       ];
       
       let lastError: Error | null = null;
@@ -122,7 +122,7 @@ export const lookupWord = createServerFn({ method: "POST" })
           timeoutId = setTimeout(() => {
             console.warn(`[DEBUG] Timeout reached for model: ${model}. Aborting...`);
             controller.abort();
-          }, 4500);
+          }, 2500);
 
           const currentRes = await fetch(url, {
             method: "POST",
